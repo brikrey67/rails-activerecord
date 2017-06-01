@@ -87,7 +87,7 @@ Create `Artist` and `Song` models the [same way you did in last week's Active Re
 * Inherit from Active Record
 * Indicate the appropriate relationships. This app will follow the below ERD...
 
-![tunr erd](http://i.imgur.com/JzWriwJ.png)
+Check out the [tunr erd here](http://i.imgur.com/JzWriwJ.png)
 
 You will be placing these files into the `app/models` directory of your Rails application.  
 
