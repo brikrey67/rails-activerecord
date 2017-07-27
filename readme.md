@@ -2,22 +2,18 @@
 
 ## Learning Objectives
 
-* Create a new rails application with Postgres as the default database
+* Create a new Rails application with Postgres as the default database
 * Use `rails` commands to create, edit, update and seed a database
 * Use Rails generators to create migrations
-* Use Rails console to inspect and manipulate models
-* Use Rails migrations to create tables and modify columns
-* Undo a migration with `rails db:rollback`
-* Create migrations that associate one model with another
+* Use Rails migrations to create tables, modify columns, and associate tables
+* Undo migrations with `rails db:rollback`
 * Identify the impacts of editing existing migrations
-* Use `timestamps` to timestamp CRUD actions
-* Use shorthand syntax to create migrations from the command line
 
 ---
 
 ## Framing
 
-The files we’ll be working with in this lesson are highlighted in blue below...
+In this lesson, we will be focusing on the many features that Ruby on Rails and ActiveRecord provide us to set up and maintain our database and models. The files we’ll be working with in this lesson are highlighted in blue below...
 
 ![](https://dl.dropboxusercontent.com/s/2zho5ekuhxpp5lx/Screenshot%202015-07-26%2010.26.28.png?dl=0)
 
@@ -84,7 +80,7 @@ The `rails` command is frequently used to...
 Create `Artist` and `Song` models the [same way you did in last week's Active Record class](https://github.com/ga-wdi-lessons/activerecord-intro#defining-our-models). They should...
 * Have the appropriate file name
 * Have the appropriate model name
-* Inherit from Active Record
+* Inherit from `ApplicationRecord` (look in `app/models/application_record.rb` to see where the model connects to `ActiveRecord::Base`)
 * Indicate the appropriate relationships. This app will follow the below ERD...
 
 Check out the [tunr erd here](http://i.imgur.com/JzWriwJ.png)
@@ -115,8 +111,8 @@ At the end of the last exercise, we got an error in the Rails console telling us
 Think of a set of migrations as a recipe for a database schema, with each migration representing a step in that recipe.
 * Our schema file defines the structure of our application's database
 * A schema starts off with nothing in it, and each migration modifies it to add/remove tables, columns or entries
-* Active Record knows how to update your schema along this timeline, bringing it from whatever point it is in the history to the latest version
-* Active Record will update `db/schema.rb` to match the latest database structure
+* ActiveRecord knows how to update your schema along this timeline, bringing it from whatever point it is in the history to the latest version
+* ActiveRecord will update `db/schema.rb` to match the latest database structure
 
 > An extensive description of Rails migrations can be found via the Rails docs [here](http://edgeguides.rubyonrails.org/active_record_migrations.html).  
 
@@ -165,11 +161,11 @@ How are we defining columns in `create_table`?
 * We then use methods like `.string` or `.integer` to represent the data types of the columns we are creating.
 * These methods take in a symbol argument (e.g., `:photo_url`) that represents the name of the column.  
 
-> For a full list of SQL data types, click [here](http://www.w3schools.com/sql/sql_datatypes_general.asp).
+> For a full list of Rails migration data types, click [here](http://api.rubyonrails.org/classes/ActiveRecord/ConnectionAdapters/SchemaStatements.html#method-i-add_column).
 >
 > For more on using the `change` method, click [here](http://edgeguides.rubyonrails.org/active_record_migrations.html#using-the-change-method)  
 
-You can create the `artists` table and run this migration by entering the following into the terminal...
+To run this migration and create the `artists` table, enter the following into the terminal...
 
 ```bash
 $ rails db:migrate
@@ -197,10 +193,11 @@ Enter the Rails console -- `rails c` -- and create two Artists using Active Reco
 
 Create a migration file for a new `songs` table. Songs should have columns for `title` `album` and `preview_url`, all of which are strings.  
 
-To associate one model with another in a migration file, you can include one -- **and only one!** -- of the following methods in the `create_table` method. They all do the same thing assuming you have set up your associations properly in your models...  
-* `t.belongs_to :artist`
+To associate one model with another in a migration file, you can include one of the following methods in the `create_table` method. They all do the same thing assuming you have set up your associations properly in your models...  
 * `t.references :artist`
+* `t.belongs_to :artist`
 * `t.integer :artist_id`
+> Note: `t.references` or `t.belongs_to` (which are aliases of each other) are preferable because they set up indexing of records (faster querying)
 
 ## Break (10 minutes / 1:05)
 
@@ -224,7 +221,7 @@ class CreateSongs < ActiveRecord::Migration
       t.string :title
       t.string :album
       t.string :preview_url
-      t.references :artist, index: true, foreign_key: true
+      t.references :artist, foreign_key: true
     end
   end
 end
@@ -233,9 +230,12 @@ end
 What do we see?
 * `references` is used when the column represents a foreign key for another table. It appears
 wherever `belongs_to` appears in the model definition.
-* `t.references :artist` is equivalent to `t.integer :artist_id`  
+* `t.references :artist` is functionally equivalent to `t.integer :artist_id`
+* `foreign_key: true` can be used with `t.references` or `t.belongs_to` to set up a foreign key constraint in our database. The above example, in SQL, it would translate to:
+  ```sql
+    artist_id INTEGER REFERENCES artists(id)
+  ```
 
-> What is [`index: true`?](http://rny.io/rails/postgresql/2013/08/20/postgresql-indexing-in-rails.html)  
 
 ## You Do: Rails Console (5 minutes / 1:20)
 
@@ -296,9 +296,92 @@ end
 
 Apply what we just learned to the `songs` table.
 
-## Validations (10 minutes / 1:55)
+## Undoing Things
 
-We're going to take a brief break from migrations to talk about our data. ActiveRecord is pretty great for allowing us to easily read from and write to our database. But sometimes power and simplicity just allows us to more easily shoot ourselves in the foot.
+### The Wrong Way (10 minutes / 1:55)
+
+Lets assume you have this migration...
+
+```rb
+class CreateArtists < ActiveRecord::Migration
+  def change
+    create_table :artists do |t|
+      t.string :name
+      t.string :poto_url
+      t.string :nationality
+    end
+  end
+end
+```
+
+We really messed this migration up by misspelling `:photo_url`. But oh no, we've already run our migrations! What do we do?  
+
+We could directly modify this migration file and run `rails db:migrate`.
+* But if we then look at `db/schema.rb`, however, we see that nothing has changed. It still says `poto_url`.
+
+What about resetting the entire database via the Terminal?  
+
+```bash
+$ rails db:drop
+$ rails db:create
+$ rails db:migrate
+```
+
+If we run these commands, we're dropping our entire database and creating a brand new one.
+* Why is this potentially super dangerous?
+
+Another way we can do this is by using `rails db:rollback`.
+* To undo a single migration, run `rails db:rollback` in the Terminal
+* Be careful though -- this might destroy data! Whatever columns or tables that were created by that migration will now be gone.  
+
+> Running `rails db:rollback` will only undo the migration with the most recent timestamp. Every subsequent rollback will undo the most recent timestamped migration that hasn't been undone yet.  
+
+It is considered okay to rollback migrations, edit them and re-migrate in a development environment, but **NOT** in a production environment.
+* If you are working on an application with other developers, avoid using `rails db:rollback` after code has been pushed
+
+A common theme here is that if you're not working alone in development, destroying data is bad.
+* It's sometimes not obvious what actions you take may or may not destroy user data. Know that `rails db:rollback` and `rails db:drop` have the potential of doing it.
+
+### You Do: Create a Migration and Roll It Back (5 minutes / 2:00)
+
+* Create a migration that adds a column to artist called `genre` that has a string as the data type
+* Run the migrations by running `$ rails db:migrate`
+* Inspect `db/schema.rb` and look at its contents
+* Now run `rails db:rollback`
+* Inspect `db/schema.rb` again and note that `genre` is not longer a column in the table
+* Spend two minutes experimenting for yourself how `$ rails db:rollback` works
+
+
+### The Right Way (10 minutes / 2:10)
+
+Let's assume we did mess up our initial migration like the code above with the misspelled `poto_url`. Instead of the methods listed above, the right way is to create an additional migration that changes the name of the column in our table.  
+
+In the terminal...  
+
+```bash
+$ rails g migration change_column_in_artists
+```
+
+This will generate a new migration. Lets fill its contents now in `db/migrate/20161105201357_change_column_in_artists.rb`...
+
+```rb
+class ChangeColumnInArtists < ActiveRecord::Migration
+  def change
+    rename_column :artists, :poto_url, :photo_url
+  end
+end
+```
+
+`rename_column` is another method we can use inside `change`. It takes 3 arguments...
+  1. The table for which you want to rename a column.  
+  2. The current name of the column you'd like to change.  
+  3. The new name of the column.  
+
+Now if we run our migrations, we can see that the artists table in `db/schema.rb` has the proper `:photo_url` column. Although this process takes a bit more legwork, we don't run the risk of destroying databases or undoing migrations.
+
+## Validations (10 minutes / 2:20)
+
+ActiveRecord is pretty great for allowing us to easily read from and write to our database. But sometimes power and simplicity just allows us to more easily shoot ourselves in the foot.
 
 In the rails console (`$ rails c`), lets try some code:
 
@@ -362,91 +445,7 @@ Plenty of more validation helpers:
 
  > Remember: `validates` works for **models only**. Don't try to add `validates` to a database migration.
 
-Now back to migrations
 
-
-## Undoing Things
-
-### The Wrong Way (10 minutes / 2:05)
-
-Lets assume you have this migration...
-
-```rb
-class CreateArtists < ActiveRecord::Migration
-  def change
-    create_table :artists do |t|
-      t.string :name
-      t.string :poto_url
-      t.string :nationality
-    end
-  end
-end
-```
-
-We really messed this migration up by misspelling `:photo_url`. But oh no, we've already run our migrations! What do we do?  
-
-We could directly modify this migration file and run `rails db:migrate`.
-* But if we then look at `db/schema.rb`, however, we see that nothing has changed. It still says `poto_url`.
-
-What about resetting the entire database via the Terminal?  
-
-```bash
-$ rails db:drop
-$ rails db:create
-$ rails db:migrate
-```
-
-If we run these commands, we're dropping our entire database and creating a brand new one.
-* Why is this potentially super dangerous?
-
-Another way we can do this is by using `rails db:rollback`.
-* To undo a single migration, run `rails db:rollback` in the Terminal
-* Be careful though -- this might destroy data! Whatever columns or tables that were created by that migration will now be gone.  
-
-> Running `rails db:rollback` will only undo the migration with the most recent timestamp. Every subsequent rollback will undo the most recent timestamped migration that hasn't been undone yet.  
-
-It is considered okay to rollback migrations, edit them and re-migrate in a development environment, but **NOT** in a production environment.
-* If you are working on an application with other developers, avoid using `rails db:rollback` after code has been pushed
-
-A common theme here is that if you're not working alone in development, destroying data is bad.
-* It's sometimes not obvious what actions you take may or may not destroy user data. Know that `rails db:rollback` and `rails db:drop` have the potential of doing it.
-
-### You Do: Create a Migration and Roll It Back (5 minutes / 2:10)
-
-* Create a migration that adds a column to artist called `genre` that has a string as the data type
-* Run the migrations by running `$ rails db:migrate`
-* Inspect `db/schema.rb` and look at its contents
-* Now run `rails db:rollback`
-* Inspect `db/schema.rb` again and note that `genre` is not longer a column in the table
-* Spend two minutes experimenting for yourself how `$ rails db:rollback` works
-
-
-### The Right Way (10 minutes / 2:20)
-
-Let's assume we did mess up our initial migration like the code above with the misspelled `poto_url`. Instead of the methods listed above, the right way is to create an additional migration that changes the name of the column in our table.  
-
-In the terminal...  
-
-```bash
-$ rails g migration change_column_in_artists
-```
-
-This will generate a new migration. Lets fill its contents now in `db/migrate/20161105201357_change_column_in_artists.rb`...
-
-```rb
-class ChangeColumnInArtists < ActiveRecord::Migration
-  def change
-    rename_column :artists, :poto_url, :photo_url
-  end
-end
-```
-
-`rename_column` is another method we can use inside `change`. It takes 3 arguments...
-  1. The table for which you want to rename a column.  
-  2. The current name of the column you'd like to change.  
-  3. The new name of the column.  
-
-Now if we run our migrations, we can see that the artists table in `db/schema.rb` has the proper `:photo_url` column. Although this process takes a bit more legwork, we don't run the risk of destroying databases or undoing migrations.
 
 ## Closing/Questions (10 minutes / 2:30)
 
