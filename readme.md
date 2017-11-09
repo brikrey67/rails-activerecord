@@ -30,10 +30,10 @@ This creates a lot of new files in a directory called `tunr`. We can easily keep
 
 ```bash
 $ cd tunr
-$ git init
 $ git add .
 $ git commit -m "initial commit"
 ```
+> NOTE: As of Rails 5, `rails new` will automatically run `git init` upon project creation
 
 Let's explore some of the files that were created...  
 
@@ -77,15 +77,13 @@ The `rails` command is frequently used to...
 
 > 5 minutes exercise. 5 minutes review.
 
-Create `Artist` and `Song` models the [same way you did in last week's Active Record class](https://github.com/ga-wdi-lessons/activerecord-intro#defining-our-models). They should...
+In the `app/models` directory of your Rails application, create files for your `Artist` and `Song` models the [same way you did in last week's Active Record class](https://git.generalassemb.ly/ga-wdi-lessons/activerecord-intro#defining-our-models). They should...
 * Have the appropriate file name
 * Have the appropriate model name
-* Inherit from `ApplicationRecord` (look in `app/models/application_record.rb` to see where the model connects to `ActiveRecord::Base`)
+* Inherit from `ApplicationRecord` (look in `app/models/application_record.rb` to see where `ApplicationRecord` connects to `ActiveRecord::Base`)
 * Indicate the appropriate relationships. This app will follow the below ERD...
 
-Check out the [tunr erd here](http://i.imgur.com/JzWriwJ.png)
-
-You will be placing these files into the `app/models` directory of your Rails application.  
+![tunr erd here](http://i.imgur.com/JzWriwJ.png)
 
 How do you know it worked? If we hop into the rails console and type in Artist...  
 
